@@ -14,7 +14,7 @@ public class ComputeComponent implements ComputeSubscription, RouterComponent {
 
     public static final int INIT_COUNT = 0;
     private static final Logger Log = LoggerFactory.getLogger(ComputeComponent.class);
-    private static int count = 0;
+    private volatile static int count = 0;
 
     public static int getCount() {
         return count;

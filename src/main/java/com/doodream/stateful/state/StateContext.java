@@ -38,6 +38,7 @@ public class StateContext {
             throw new IllegalStateException("no valid state handler for " + state);
         }
 
+        action.setStateContext(this);
         final String nextState = handler.handleAction(action);
         if(nextState == null || nextState.isEmpty()) {
             return false;

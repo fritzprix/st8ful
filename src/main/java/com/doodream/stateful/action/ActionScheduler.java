@@ -6,6 +6,7 @@ import org.slf4j.LoggerFactory;
 import java.lang.ref.WeakReference;
 import java.util.Map;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class ActionScheduler {
 
@@ -17,7 +18,7 @@ public class ActionScheduler {
     private final ScheduledExecutorService scheduledExecutorService = Executors.newScheduledThreadPool(4);
     private final Map<Action, ScheduledFuture> scheduledTasks = new ConcurrentHashMap<>();
     private WeakReference<ScheduledActionListener> listener;
-    private volatile boolean isStarted = false;
+    private AtomicBoolean isStarted = new AtomicBoolean(false);
 
     interface ScheduledActionListener {
         void onHandleAction(Action action);
@@ -44,20 +45,33 @@ public class ActionScheduler {
     }
 
     synchronized void start(ScheduledActionListener actionListener) throws IllegalStateException {
-        if(isStarted) {
-            throw new IllegalStateException("already started!!");
+        if(!isStarted.compareAndSet(false, true)) {
+            return;
         }
-        isStarted = true;
         actionPoolConsumingTask = stealingPool.submit(() -> {
+            while (isStarted.get()) {
+                try {
+                    final Action<?> action = actionQueue.take();
+                    actionListener.onHandleAction(action);
+                } catch (InterruptedException e) {
+
+                }
+            }
         });
         listener = new WeakReference<>(actionListener);
     }
 
-    synchronized void stop() {
-        if(!isStarted) {
+    void stop() {
+        if(!isStarted.compareAndSet(true, false)) {
             throw new IllegalStateException("not started!!");
         }
-        isStarted = false;
+        synchronized (scheduledTasks) {
+            try {
+                while (!scheduledTasks.isEmpty()) {
+                    scheduledTasks.wait();
+                }
+            } catch (InterruptedException ignored) { }
+        }
         cancelPoolConsumingTask();
         cancelScheduledTask();
     }
@@ -89,7 +103,10 @@ public class ActionScheduler {
         if(!scheduledTasks.containsKey(action)) {
             scheduledTasks.put(action, scheduledExecutorService.schedule(() -> {
                 final ScheduledActionListener nullableListener = listener.get();
-                scheduledTasks.remove(action);
+                synchronized (scheduledTasks) {
+                    scheduledTasks.remove(action);
+                    scheduledTasks.notifyAll();
+                }
                 if (nullableListener == null) {
                     return false;
                 }
