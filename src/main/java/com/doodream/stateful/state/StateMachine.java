@@ -40,7 +40,6 @@ public class StateMachine {
             Log.warn("action queue is full!!, all the threads in the pool are blocked");
             return false;
         }
-
         return true;
     }
 
@@ -55,9 +54,7 @@ public class StateMachine {
         if(!isStarted.compareAndSet(false, true)) {
             throw new IllegalStateException("state machine has already started");
         }
-        stateMachineTask.set(executorService.submit(() -> {
-            startHandleAction();
-        }));
+        stateMachineTask.set(executorService.submit(() -> startHandleAction()));
     }
 
     public void stop() {
@@ -91,7 +88,7 @@ public class StateMachine {
                     if (context.handle(action)) {
                         Log.debug("action : {} handled", action);
                     }
-                } catch (Exception e) {
+                } catch (ExecutionException e) {
                     Log.warn("fail to handle {} : ", action, e);
                 }
             }

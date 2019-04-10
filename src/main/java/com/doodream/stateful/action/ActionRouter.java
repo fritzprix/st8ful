@@ -12,11 +12,15 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class ActionRouter {
 
     private static final Logger Log = LoggerFactory.getLogger(ActionRouter.class);
+
     private final ActionScheduler actionScheduler = new ActionScheduler();
+    private final AtomicBoolean isStarted = new AtomicBoolean(false);
 
     private HashSet<ActionPublisher> publishers;
     private ActionLookupTable lookupTable;
@@ -33,9 +37,18 @@ public class ActionRouter {
                 .build();
     }
 
-    public void start(StateContext context) {
-        Log.debug("start {}", context.getState());
-        actionScheduler.start(action -> context.handle(action));
+    public void start(StateContext context) throws IllegalStateException {
+        if(!isStarted.compareAndSet(false, true)) {
+            throw new IllegalStateException("already started");
+        }
+        Log.debug("start @ {}", context.getState());
+        actionScheduler.start(action -> {
+            try {
+                context.handle(action);
+            } catch (ExecutionException e) {
+                Log.error("fail to handle {} : ", action, e);
+            }
+        });
         for (ComponentContainer component : components) {
             component.getComponent().start(context);
         }
@@ -45,7 +58,10 @@ public class ActionRouter {
         }
     }
 
-    public void stop(StateContext context) {
+    public void stop(StateContext context) throws IllegalStateException {
+        if(!isStarted.compareAndSet(true, false)) {
+            throw new IllegalStateException("already stopped");
+        }
         for (ActionPublisher publisher : publishers) {
             publisher.stopListen(context);
         }
@@ -56,7 +72,10 @@ public class ActionRouter {
         actionScheduler.stop();
     }
 
-    @Nullable public String routeAction(final Action<?> action) {
+    @Nullable public String routeAction(final Action<?> action) throws IllegalStateException {
+        if(!isStarted.get()) {
+            throw new IllegalStateException("not started");
+        }
         final LookupResult result = lookupTable.lookup(action);
         if(result.isEmpty()) {
             Log.debug("fail to lookup : {}", action);

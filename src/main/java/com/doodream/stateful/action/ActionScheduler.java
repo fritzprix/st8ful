@@ -44,9 +44,9 @@ public class ActionScheduler {
         }
     }
 
-    synchronized void start(ScheduledActionListener actionListener) throws IllegalStateException {
+    void start(ScheduledActionListener actionListener) throws IllegalStateException {
         if(!isStarted.compareAndSet(false, true)) {
-            return;
+            throw new IllegalStateException("already started");
         }
         actionPoolConsumingTask = stealingPool.submit(() -> {
             while (isStarted.get()) {
@@ -61,16 +61,9 @@ public class ActionScheduler {
         listener = new WeakReference<>(actionListener);
     }
 
-    void stop() {
+    void stop() throws IllegalStateException {
         if(!isStarted.compareAndSet(true, false)) {
             throw new IllegalStateException("not started!!");
-        }
-        synchronized (scheduledTasks) {
-            try {
-                while (!scheduledTasks.isEmpty()) {
-                    scheduledTasks.wait();
-                }
-            } catch (InterruptedException ignored) { }
         }
         cancelPoolConsumingTask();
         cancelScheduledTask();
@@ -103,10 +96,7 @@ public class ActionScheduler {
         if(!scheduledTasks.containsKey(action)) {
             scheduledTasks.put(action, scheduledExecutorService.schedule(() -> {
                 final ScheduledActionListener nullableListener = listener.get();
-                synchronized (scheduledTasks) {
-                    scheduledTasks.remove(action);
-                    scheduledTasks.notifyAll();
-                }
+                scheduledTasks.remove(action);
                 if (nullableListener == null) {
                     return false;
                 }

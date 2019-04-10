@@ -14,8 +14,9 @@ public class HelloAcceptor implements HelloSubscription, RouterComponent {
     private Logger Log = LoggerFactory.getLogger(HelloAcceptor.class);
 
     @Override
-    public void handleHelloAction(Action<String> action) {
+    public void handleHelloAction(Action<String> action) throws Exception {
         Log.debug("Hello");
+        throw new Exception("fuck");
     }
 
     @Override

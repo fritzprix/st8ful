@@ -7,13 +7,13 @@ public class StateHandler {
 
     ActionRouter router;
 
-    public void stageIn(StateContext context) {
+    protected void stageIn(StateContext context) {
         if(router != null) {
             router.start(context);
         }
     }
 
-    public String handleAction(Action<?> action) {
+    protected String handleAction(Action<?> action) {
         if(router != null) {
             return router.routeAction(action);
         } else {
@@ -21,7 +21,7 @@ public class StateHandler {
         }
     }
 
-    public void stageOut(StateContext context) {
+    protected void stageOut(StateContext context) {
         if(router != null) {
             router.stop(context);
         }

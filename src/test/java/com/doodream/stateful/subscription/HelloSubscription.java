@@ -12,5 +12,5 @@ public interface HelloSubscription {
 
     @StateTransition(next=TestState.IDLE)
     @ActionHandler(name = TestAction.HELLO, param=String.class)
-    void handleHelloAction(final Action<String> action);
+    void handleHelloAction(final Action<String> action) throws Exception;
 }
