@@ -86,7 +86,7 @@ public class TestStateMachine {
         try {
             Thread.sleep(100);
         } catch (InterruptedException ignored) {}
-        Assert.assertEquals(ComputeComponent.getCount(), ComputeComponent.INIT_COUNT);
+        Assert.assertEquals(ComputeComponent.INIT_COUNT, ComputeComponent.getCount());
     }
 
     @Test

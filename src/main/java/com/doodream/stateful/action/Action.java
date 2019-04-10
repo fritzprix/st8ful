@@ -1,14 +1,17 @@
 package com.doodream.stateful.action;
 
+import com.doodream.stateful.state.StateContext;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
 @Data
-@EqualsAndHashCode(exclude = {"param", "scope"})
+@EqualsAndHashCode(exclude = {"param", "scope", "stateContext"})
 public class Action<T> {
-    String name;
-    transient String scope;
-    T param;
+    private String name;
+    private T param;
+
+    private transient String scope;
+    private transient StateContext stateContext;
 
     public static final Action<?> EMPTY = new Action<>();
 

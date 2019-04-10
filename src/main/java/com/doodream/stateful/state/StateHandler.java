@@ -1,13 +1,29 @@
 package com.doodream.stateful.state;
 
 import com.doodream.stateful.action.Action;
+import com.doodream.stateful.action.ActionRouter;
 
-public interface StateHandler {
+public class StateHandler {
 
-    void stageIn(final StateContext context);
+    ActionRouter router;
 
-    String handleAction(final Action<?> action);
+    public void stageIn(StateContext context) {
+        if(router != null) {
+            router.start(context);
+        }
+    }
 
-    void stageOut(final StateContext context);
+    public String handleAction(Action<?> action) {
+        if(router != null) {
+            return router.routeAction(action);
+        } else {
+            return null;
+        }
+    }
 
+    public void stageOut(StateContext context) {
+        if(router != null) {
+            router.stop(context);
+        }
+    }
 }

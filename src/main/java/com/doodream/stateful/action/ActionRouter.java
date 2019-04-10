@@ -27,6 +27,12 @@ public class ActionRouter {
         return new Builder();
     }
 
+    public static ActionRouter from(ActionRoute actionRoute) {
+        return builder().from(actionRoute.from())
+                .to(actionRoute.to())
+                .build();
+    }
+
     public void start(StateContext context) {
         Log.debug("start {}", context.getState());
         actionScheduler.start(action -> context.handle(action));
@@ -40,7 +46,6 @@ public class ActionRouter {
     }
 
     public void stop(StateContext context) {
-
         for (ActionPublisher publisher : publishers) {
             publisher.stopListen(context);
         }
@@ -48,6 +53,7 @@ public class ActionRouter {
         for (ComponentContainer component : components) {
             component.getComponent().stop(context);
         }
+        actionScheduler.stop();
     }
 
     @Nullable public String routeAction(final Action<?> action) {
@@ -66,11 +72,11 @@ public class ActionRouter {
         final StateTransition transition = result.getTransition();
         for (ComponentContainer container : containers) {
             try {
-                method.invoke(container.component, action);
+                method.invoke(container.getComponent(), action);
             } catch (IllegalAccessException | InvocationTargetException e) {
                 Log.warn("fail to handle {} @ {} : {}",
                         action,
-                        container.component.getClass().getSimpleName(),
+                        container.getComponent().getClass().getSimpleName(),
                         e.getMessage());
             }
         }

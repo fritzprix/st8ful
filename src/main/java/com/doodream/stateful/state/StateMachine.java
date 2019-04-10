@@ -1,17 +1,17 @@
 package com.doodream.stateful.state;
 
 import com.doodream.stateful.action.Action;
+import com.doodream.stateful.action.ActionRoute;
+import com.doodream.stateful.action.ActionRouter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -19,7 +19,7 @@ public class StateMachine {
 
     private static final Logger Log = LoggerFactory.getLogger(StateMachine.class);
     private StateContext context;
-    private final ScheduledExecutorService executorService = Executors.newSingleThreadScheduledExecutor();
+    private final ExecutorService executorService = Executors.newWorkStealingPool(4);
     private final AtomicReference<Future> stateMachineTask = new AtomicReference<>();
     private final AtomicBoolean isStarted = new AtomicBoolean(false);
     private final ArrayBlockingQueue<Action<?>> actionQueue;
@@ -35,8 +35,8 @@ public class StateMachine {
         }
         try {
             Log.debug("queue action {}", action);
-            actionQueue.add(action);
-        } catch (IllegalStateException e) {
+            actionQueue.put(action);
+        } catch (InterruptedException e) {
             Log.warn("action queue is full!!, all the threads in the pool are blocked");
             return false;
         }
@@ -131,11 +131,29 @@ public class StateMachine {
                 if(initState == null) {
                     initState = stateHandle;
                 }
+
+
                 if(stateHandlerMap.containsKey(stateHandle.state())) {
-                    break;
+                    Log.warn("StateHandler for {} has been already added!!", stateHandle.state());
+                    continue;
                 }
 
-                stateHandlerMap.put(stateHandle.state(), constructor.newInstance());
+                StateHandler instance = constructor.newInstance();
+
+
+
+                if(isActionRouteAnnotated(handler)) {
+                    ActionRouter router = ActionRouter.from(handler.getAnnotation(ActionRoute.class));
+                    try {
+                        Field routerField = StateHandler.class.getDeclaredField("router");
+                        routerField.setAccessible(true);
+                        routerField.set(instance, router);
+                    } catch (NoSuchFieldException e) {
+                        Log.warn("the field named router is not found");
+                    }
+                }
+
+                stateHandlerMap.put(stateHandle.state(), instance);
 
             }
             if(stateHandlerMap.isEmpty()) {
@@ -143,6 +161,10 @@ public class StateMachine {
             }
 
             return this;
+        }
+
+        private boolean isActionRouteAnnotated(Class<? extends StateHandler> handler) {
+            return handler.getAnnotation(ActionRoute.class) != null;
         }
 
         public Builder addParameter(String key, Object value) {
